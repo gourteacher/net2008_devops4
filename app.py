@@ -6,7 +6,7 @@ app = Flask(__name__)
 
 @app.route('/')
 def welcome():
-    return 'Home Page'
+    return 'Default Home Page'
 
 
 def getInetAddress(line):
