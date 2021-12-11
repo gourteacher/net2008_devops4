@@ -1,0 +1,64 @@
+---
+- name: Deploy a flask app on a Debian/RedHat system
+  hosts: webserver
+  vars:
+    installation_folder: /srv
+    checkout_repo: 'https://github.com/gourteacher/Assignment4CodeBase.git'
+    url_port: 5000
+    packages:
+      - python3
+      - python3-pip
+      - git
+
+  tasks:
+  - name: Gather the package facts
+    ansible.builtin.package_facts:
+      manager: auto
+
+  - name: Install "{{ packages }}"
+    apt:
+       name: "{{ item }}"
+       state: latest
+    loop: "{{ packages }}"
+    when: item|string not in ansible_facts.packages and ansible_facts['os_family'] == "Debian"
+
+  - name: Install "{{ packages }}"
+    yum:
+       name: "{{ item }}"
+       state: latest
+    loop: "{{ packages }}"
+    when: item|string not in ansible_facts.packages and ansible_facts['os_family'] == "RedHat"
+        
+  - name: Clone a public git repository
+    git:
+      repo: '{{ checkout_repo }}' 
+      dest: '{{ installation_folder }}/app'
+
+  - name: Check if requirements exists
+    stat:
+      path: '{{ installation_folder }}/app/requirements.txt'
+
+  - name: Check app.py
+    stat:
+      path: '{{ installation_folder }}/app/app.py'
+
+  - name: Run pip3
+    command: pip3 install -r '{{ installation_folder }}/app/requirements.txt'
+       
+  - name: Run a script using an executable in a system path
+    shell: " (cd {{ installation_folder }}/app; python3 app.py >/dev/null 2>&1 &)"
+    async: 10
+    poll: 0
+
+  - name: confirm app is running
+    debug:
+      msg: "App is up and running"
+
+  - name: Check the app
+    uri: 
+      url: 'http://{{ ansible_default_ipv4.address }}:{{ url_port }}/interfaces'
+      status_code: 200
+      return_content: yes
+    register: response
+    failed_when: "'ComputerInterfaces' not in response.content"
+
